@@ -148,7 +148,8 @@ class SocketConnector {
                   'B -> A : ${message.replaceAll(RegExp('[\x00-\x1F\x7F-\xFF]'), '*')}'));
             }
           }
-          side.farSide!.sink.add(data);
+           await Future.delayed(const Duration(milliseconds: 5));
+           side.farSide!.sink.add(data);
         }, onDone: () {
           _log('stream.onDone on side ${side.name}');
           _destroySide(side);
