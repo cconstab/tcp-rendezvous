@@ -150,7 +150,7 @@ class SocketConnector {
           }
         
         await side.socket.flush();
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future.delayed(const Duration(milliseconds: 20));
          // await side.farSide!.socket.flush();
 
           side.farSide!.sink.add(data);
