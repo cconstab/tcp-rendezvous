@@ -149,8 +149,8 @@ class SocketConnector {
             }
           }
           // await Future.delayed(const Duration(milliseconds: 10));
-          await side.socket.flush();
-         // await side.farSide!.socket.flush();
+         // await side.socket.flush();
+          await side.farSide!.socket.flush();
 
           side.farSide!.sink.add(data);
         }, onDone: () {
