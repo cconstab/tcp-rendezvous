@@ -158,9 +158,15 @@ class SocketConnector {
           // print("flushed this");
           // //await Future.delayed(const Duration(milliseconds: 10));
           bool empty = false;
-          while (empty == false) {
+          int counter = 0;
+          while ((empty == false) & (counter == 5)) {
             empty = side.farSide!.buffer.isEmpty;
             await Future.delayed(const Duration(milliseconds: 10));
+            if (empty == true) {
+              counter++;
+            } else {
+              counter = 0;
+            }
           }
           side.farSide!.sink.add(data);
         }, onDone: () {
