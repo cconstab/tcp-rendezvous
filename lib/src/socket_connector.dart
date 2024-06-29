@@ -148,9 +148,9 @@ class SocketConnector {
                   'B -> A : ${message.replaceAll(RegExp('[\x00-\x1F\x7F-\xFF]'), '*')}'));
             }
           }
-          // await Future.delayed(const Duration(milliseconds: 10));
+        await Future.delayed(const Duration(milliseconds: 10));
          // await side.socket.flush();
-          await side.farSide!.socket.flush();
+         // await side.farSide!.socket.flush();
 
           side.farSide!.sink.add(data);
         }, onDone: () {
