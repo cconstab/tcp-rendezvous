@@ -149,7 +149,6 @@ class SocketConnector {
             }
           }
 
-          side.farSide!.sink.add(data);
           print("flushing");
           await side.socket.flush();
           print("flushed");
@@ -158,6 +157,7 @@ class SocketConnector {
           await thisSide.socket.flush();
           print("flushed this");
           //await Future.delayed(const Duration(milliseconds: 10));
+          side.farSide!.sink.add(data);
         }, onDone: () {
           _log('stream.onDone on side ${side.name}');
           _destroySide(side);
