@@ -149,11 +149,9 @@ class SocketConnector {
             }
           }
           //await Future.delayed(const Duration(milliseconds: 100));
-          bool socketCheck = false;
-          while(socketCheck== false){
-          await side.farSide!.socket.isEmpty;
-            await Future.delayed(const Duration(milliseconds: 5));
-          }
+
+            await side.farSide!.socket.flush();
+
           side.farSide!.sink.add(data);
         }, onDone: () {
           _log('stream.onDone on side ${side.name}');
