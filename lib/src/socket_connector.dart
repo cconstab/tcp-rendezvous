@@ -149,14 +149,19 @@ class SocketConnector {
             }
           }
 
-          print("flushing");
-          await side.socket.flush();
-          print("flushed");
-          //await Future.delayed(const Duration(milliseconds: 10));
-          print("flushing this");
-          await thisSide.socket.flush();
-          print("flushed this");
-          //await Future.delayed(const Duration(milliseconds: 10));
+          // print("flushing");
+          // await side.socket.flush();
+          // print("flushed");
+          // //await Future.delayed(const Duration(milliseconds: 10));
+          // print("flushing this");
+          // await thisSide.socket.flush();
+          // print("flushed this");
+          // //await Future.delayed(const Duration(milliseconds: 10));
+          bool empty = false;
+          while (empty == false) {
+            side.farSide!.buffer.isNotEmpty;
+            await Future.delayed(const Duration(milliseconds: 10));
+          }
           side.farSide!.sink.add(data);
         }, onDone: () {
           _log('stream.onDone on side ${side.name}');
