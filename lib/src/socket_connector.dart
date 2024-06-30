@@ -161,14 +161,14 @@ class SocketConnector {
           int counter = 0;
           while (counter < 5) {
             print(counter);
-            empty = await side.socket.isEmpty;
+            await side.socket.flush();
             print(empty.toString());
             await Future.delayed(const Duration(milliseconds: 10));
-            if (empty == true) {
+            // if (empty == true) {
               counter++;
-            } else {
-              counter = 0;
-            }
+            // } else {
+            //   counter = 0;
+            // }
           }
           
           side.farSide!.sink.add(data);
