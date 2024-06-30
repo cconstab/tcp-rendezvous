@@ -157,14 +157,14 @@ class SocketConnector {
           // await thisSide.socket.flush();
           // print("flushed this");
           // //await Future.delayed(const Duration(milliseconds: 10));
-          bool? empty = false;
+          int? empty = 0;
           int counter = 0;
           while (counter < 5) {
             print(counter);
-            empty = await side.farSide?.socket.isEmpty;
+            empty = await side.farSide?.socket.length;
             print(empty.toString());
             await Future.delayed(const Duration(milliseconds: 10));
-            if (empty == true) {
+            if (empty == 0) {
               counter++;
             } else {
               counter = 0;
