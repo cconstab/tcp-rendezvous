@@ -169,7 +169,7 @@ class SocketConnector {
             // } else {
             //   counter = 0;
             // }
-          }
+          //}
           
           side.farSide!.sink.add(data);
         }, onDone: () {
