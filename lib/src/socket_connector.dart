@@ -157,17 +157,18 @@ class SocketConnector {
           // await thisSide.socket.flush();
           // print("flushed this");
           // //await Future.delayed(const Duration(milliseconds: 10));
-          // bool empty = false;
-          // int counter = 0;
-          // while ((empty == false) & (counter == 5)) {
-          //   empty = side.farSide!.buffer.isEmpty;
-          //   await Future.delayed(const Duration(milliseconds: 10));
-          //   if (empty == true) {
-          //     counter++;
-          //   } else {
-          //     counter = 0;
-          //   }
-          // }
+          bool empty = false;
+          int counter = 0;
+          while ((empty == false) & (counter == 5)) {
+            print(counter);
+            empty = side.farSide!.buffer.isEmpty;
+            await Future.delayed(const Duration(milliseconds: 10));
+            if (empty == true) {
+              counter++;
+            } else {
+              counter = 0;
+            }
+          }
           side.farSide!.sink.add(data);
         }, onDone: () {
           _log('stream.onDone on side ${side.name}');
