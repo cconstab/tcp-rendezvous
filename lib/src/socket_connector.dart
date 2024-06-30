@@ -161,7 +161,7 @@ class SocketConnector {
           int counter = 0;
           while (counter < 5) {
             print(counter);
-            empty = await side.stream.isEmpty;
+            empty = await side.socket.isEmpty;
             print(empty.toString());
             await Future.delayed(const Duration(milliseconds: 10));
             if (empty == true) {
