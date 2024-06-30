@@ -162,6 +162,7 @@ class SocketConnector {
           while (counter < 5) {
             print(counter);
             empty = side.farSide!.buffer.isEmpty;
+            print(empty.toString());
             await Future.delayed(const Duration(milliseconds: 10));
             if (empty == true) {
               counter++;
