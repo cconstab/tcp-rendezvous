@@ -168,7 +168,12 @@ class SocketConnector {
               counter = 0;
             }
           }
+          try{
           side.farSide!.sink.add(data);
+          }
+          catch(e){
+            print("socket error");
+          }
         }, onDone: () {
           _log('stream.onDone on side ${side.name}');
           _destroySide(side);
