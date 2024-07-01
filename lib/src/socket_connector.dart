@@ -170,7 +170,7 @@ class SocketConnector {
             //   counter = 0;
             // }
           //}
-          
+           side.socket.setOption(SocketOption.tcpNoDelay, true);
           side.farSide!.sink.add(data);
         }, onDone: () async {
           _log('stream.onDone on side ${side.name}');
