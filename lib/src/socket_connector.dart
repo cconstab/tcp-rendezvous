@@ -174,28 +174,30 @@ class SocketConnector {
           side.farSide!.sink.add(data);
         }, onDone: () async {
           _log('stream.onDone on side ${side.name}');
-          await Future.delayed(const Duration(seconds: 10));
           _destroySide(side);
         }, onError: (error) async {
           _log('stream.onError on side ${side.name}: $error', force: true);
-            await Future.delayed(const Duration(seconds: 10));
           _destroySide(side);
         });
       }
     }
   }
 
-  _destroySide(final Side side) {
+  _destroySide(final Side side) async {
     if (side.state != SideState.open) {
       return;
     }
     side.state = SideState.closing;
     try {
       _log(chalk.brightBlue('Destroying socket on side ${side.name}'));
+                  await Future.delayed(const Duration(seconds: 10));
+
       side.socket.destroy();
       if (side.farSide != null) {
         _log(chalk.brightBlue(
             'Destroying socket on far side (${side.farSide?.name})'));
+                        await Future.delayed(const Duration(seconds: 10));
+
         side.farSide?.socket.destroy();
       }
 
