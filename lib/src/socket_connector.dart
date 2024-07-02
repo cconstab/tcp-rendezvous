@@ -170,13 +170,12 @@ class SocketConnector {
             //   counter = 0;
             // }
           //}
-           side.socket.setOption(SocketOption.tcpNoDelay, true);
           side.farSide!.sink.add(data);
         }, onDone: () async {
           _log('stream.onDone on side ${side.name}');
           _destroySide(side);
         }, onError: (error) async {
-          _log('stream.onError on side ${side.name}: $error', force: true);
+          _log('stream.onError on side ${side.name}: $error', force: false);
           _destroySide(side);
         });
       }
@@ -190,13 +189,13 @@ class SocketConnector {
     side.state = SideState.closing;
     try {
       _log(chalk.brightBlue('Destroying socket on side ${side.name}'));
-                  await Future.delayed(const Duration(seconds: 10));
+                  await Future.delayed(const Duration(seconds: 30));
 
       side.socket.destroy();
       if (side.farSide != null) {
         _log(chalk.brightBlue(
             'Destroying socket on far side (${side.farSide?.name})'));
-                        await Future.delayed(const Duration(seconds: 10));
+                        await Future.delayed(const Duration(seconds: 30));
 
         side.farSide?.socket.destroy();
       }
