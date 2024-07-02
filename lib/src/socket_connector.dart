@@ -189,13 +189,11 @@ class SocketConnector {
     side.state = SideState.closing;
     try {
       _log(chalk.brightBlue('Destroying socket on side ${side.name}'));
-                  await Future.delayed(const Duration(seconds: 30));
 
       side.socket.destroy();
       if (side.farSide != null) {
         _log(chalk.brightBlue(
             'Destroying socket on far side (${side.farSide?.name})'));
-                        await Future.delayed(const Duration(seconds: 30));
 
         side.farSide?.socket.destroy();
       }
