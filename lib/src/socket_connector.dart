@@ -287,11 +287,11 @@ class SocketConnector {
       }));
     }, onError: (error) {
       logSink.writeln(
-          '${DateTime.now()} | serverToServer | ERROR on serverSocketA: ${connector._serverSocketA!.port} : $error');
+          '${DateTime.now()} | serverToServer | ERROR on serverSocketA: ${connector._serverSocketA?.port} : $error');
       connector.close();
     }, onDone: () {
       logSink.writeln(
-          '${DateTime.now()} | serverToServer | onDone called on serverSocketA: ${connector._serverSocketA!.port}');
+          '${DateTime.now()} | serverToServer | onDone called on serverSocketA: ${connector._serverSocketA?.port}');
       connector.close();
     });
 
@@ -307,11 +307,11 @@ class SocketConnector {
       }));
     }, onError: (error) {
       logSink.writeln(
-          '${DateTime.now()} | serverToServer | ERROR on serverSocketB: ${connector._serverSocketB!.port} : $error');
+          '${DateTime.now()} | serverToServer | ERROR on serverSocketB: ${connector._serverSocketB?.port} : $error');
       connector.close();
     }, onDone: () {
       logSink.writeln(
-          '${DateTime.now()} | serverToServer | onDone called on serverSocketB: ${connector._serverSocketB!.port}');
+          '${DateTime.now()} | serverToServer | onDone called on serverSocketB: ${connector._serverSocketB?.port}');
       connector.close();
     });
 
