@@ -132,7 +132,8 @@ class SocketConnector {
     if (pendingA.isNotEmpty && pendingB.isNotEmpty) {
       Connection c = Connection(pendingA.removeAt(0), pendingB.removeAt(0));
       connections.add(c);
-      _log(chalk.brightBlue('Added connection. There are now ${connections.length} connections.'));
+      _log(chalk.brightBlue(
+          'Added connection. There are now ${connections.length} connections.'));
 
       for (final side in [thisSide, thisSide.farSide!]) {
         if (side.transformer != null) {
@@ -180,7 +181,8 @@ class SocketConnector {
     }
     if (connectionToRemove != null) {
       connections.remove(connectionToRemove);
-      _log(chalk.brightBlue('Removed connection. ${connections.length} remaining.'));
+      _log(chalk
+          .brightBlue('Removed connection. ${connections.length} remaining.'));
       if (connections.isEmpty && gracePeriodPassed) {
         _log(chalk.brightBlue('No established connections remain'
             ' and grace period has passed - '
@@ -283,7 +285,8 @@ class SocketConnector {
       }
       Side sideA = Side(socket, true, socketAuthVerifier: socketAuthVerifierA);
       unawaited(connector.handleSingleConnection(sideA).catchError((err) {
-        logSink.writeln('ERROR $err from handleSingleConnection on sideA $sideA');
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideA $sideA');
       }));
     }, onError: (error) {
       logSink.writeln(
@@ -303,7 +306,8 @@ class SocketConnector {
       }
       Side sideB = Side(socket, false, socketAuthVerifier: socketAuthVerifierB);
       unawaited(connector.handleSingleConnection(sideB).catchError((err) {
-        logSink.writeln('ERROR $err from handleSingleConnection on sideB $sideB');
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideB $sideB');
       }));
     }, onError: (error) {
       logSink.writeln(
@@ -363,7 +367,8 @@ class SocketConnector {
     connector._serverSocketB?.listen((socketB) {
       Side sideB = Side(socketB, false, transformer: transformBtoA);
       unawaited(connector.handleSingleConnection(sideB).catchError((err) {
-        logSink.writeln('ERROR $err from handleSingleConnection on sideB $sideB');
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideB $sideB');
       }));
     });
     return (connector);
@@ -473,7 +478,8 @@ class SocketConnector {
     ssc.stream.listen((sideASocket) async {
       Side sideA = Side(sideASocket, true, transformer: transformAtoB);
       unawaited(connector.handleSingleConnection(sideA).catchError((err) {
-        logSink.writeln('ERROR $err from handleSingleConnection on sideA $sideA');
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideA $sideA');
       }));
 
       if (verbose) {
@@ -490,7 +496,8 @@ class SocketConnector {
       }
       await beforeJoining?.call(sideA, sideB);
       unawaited(connector.handleSingleConnection(sideB).catchError((err) {
-        logSink.writeln('ERROR $err from handleSingleConnection on sideB $sideB');
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideB $sideB');
       }));
 
       onConnect?.call(sideASocket, sideBSocket);
