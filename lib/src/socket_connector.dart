@@ -27,6 +27,7 @@ class SocketConnector {
     this.verbose = false,
     this.logTraffic = false,
     this.timeout = defaultTimeout,
+    this.authTimeout = defaultTimeout,
     IOSink? logger,
   }) {
     this.logger = logger ?? stderr;
@@ -82,6 +83,9 @@ class SocketConnector {
 
   final Completer _closedCompleter = Completer();
 
+  /// How long to wait for a client to authenticate its self
+  final Duration authTimeout;
+
   /// Add a [Side] with optional [SocketAuthVerifier] and
   /// [DataTransformer]
   /// - If [socketAuthVerifier] provided, wait for socket to be authenticated
@@ -101,7 +105,7 @@ class SocketConnector {
       try {
         (authenticated, stream) = await thisSide.socketAuthVerifier!
                 (thisSide.socket)
-            .timeout(Duration(seconds: 5));
+            .timeout(authTimeout);
         thisSide.authenticated = authenticated;
         if (thisSide.authenticated) {
           thisSide.stream = stream!;
@@ -128,6 +132,8 @@ class SocketConnector {
     if (pendingA.isNotEmpty && pendingB.isNotEmpty) {
       Connection c = Connection(pendingA.removeAt(0), pendingB.removeAt(0));
       connections.add(c);
+      _log(chalk.brightBlue(
+          'Added connection. There are now ${connections.length} connections.'));
 
       for (final side in [thisSide, thisSide.farSide!]) {
         if (side.transformer != null) {
@@ -165,37 +171,35 @@ class SocketConnector {
       return;
     }
     side.state = SideState.closing;
+    Connection? connectionToRemove;
+    for (final c in connections) {
+      if (c.sideA == side || c.sideB == side) {
+        _log(chalk.brightBlue('Will remove established connection'));
+        connectionToRemove = c;
+        break;
+      }
+    }
+    if (connectionToRemove != null) {
+      connections.remove(connectionToRemove);
+      _log(chalk
+          .brightBlue('Removed connection. ${connections.length} remaining.'));
+      if (connections.isEmpty && gracePeriodPassed) {
+        _log(chalk.brightBlue('No established connections remain'
+            ' and grace period has passed - '
+            ' will close connector'));
+        close();
+      }
+    }
+    side.state = SideState.closed;
     try {
       _log(chalk.brightBlue('Destroying socket on side ${side.name}'));
       side.socket.destroy();
       if (side.farSide != null) {
         _log(chalk.brightBlue(
             'Destroying socket on far side (${side.farSide?.name})'));
-        side.farSide?.socket.destroy();
+        _destroySide(side.farSide!);
       }
-
-      Connection? connectionToRemove;
-      for (final c in connections) {
-        if (c.sideA == side || c.sideB == side) {
-          _log(chalk.brightBlue('Will remove established connection'));
-          connectionToRemove = c;
-          break;
-        }
-      }
-      if (connectionToRemove != null) {
-        connections.remove(connectionToRemove);
-        _log(chalk.brightBlue('Removed connection'));
-        if (connections.isEmpty && gracePeriodPassed) {
-          _log(chalk.brightBlue('No established connections remain'
-              ' and grace period has passed - '
-              ' will close connector'));
-          close();
-        }
-      }
-    } catch (_) {
-    } finally {
-      side.state = SideState.closed;
-    }
+    } catch (_) {}
   }
 
   void close() {
@@ -241,7 +245,9 @@ class SocketConnector {
     SocketAuthVerifier? socketAuthVerifierA,
     SocketAuthVerifier? socketAuthVerifierB,
     Duration timeout = SocketConnector.defaultTimeout,
+    Duration authTimeout = SocketConnector.defaultTimeout,
     IOSink? logger,
+    int backlog = 0,
   }) async {
     IOSink logSink = logger ?? stderr;
     addressA ??= InternetAddress.anyIPv4;
@@ -251,10 +257,19 @@ class SocketConnector {
       verbose: verbose,
       logTraffic: logTraffic,
       timeout: timeout,
+      authTimeout: authTimeout,
       logger: logSink,
     );
-    connector._serverSocketA = await ServerSocket.bind(addressA, portA);
-    connector._serverSocketB = await ServerSocket.bind(addressB, portB);
+    connector._serverSocketA = await ServerSocket.bind(
+      addressA,
+      portA,
+      backlog: backlog,
+    );
+    connector._serverSocketB = await ServerSocket.bind(
+      addressB,
+      portB,
+      backlog: backlog,
+    );
     if (verbose) {
       logSink.writeln(
           '${DateTime.now()} | serverToServer | Bound ports A: ${connector.sideAPort}, B: ${connector.sideBPort}');
@@ -269,7 +284,18 @@ class SocketConnector {
             '${DateTime.now()} | serverToServer | Connection on serverSocketA: ${connector._serverSocketA!.port}');
       }
       Side sideA = Side(socket, true, socketAuthVerifier: socketAuthVerifierA);
-      unawaited(connector.handleSingleConnection(sideA));
+      unawaited(connector.handleSingleConnection(sideA).catchError((err) {
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideA $sideA');
+      }));
+    }, onError: (error) {
+      logSink.writeln(
+          '${DateTime.now()} | serverToServer | ERROR on serverSocketA: ${connector._serverSocketA?.port} : $error');
+      connector.close();
+    }, onDone: () {
+      logSink.writeln(
+          '${DateTime.now()} | serverToServer | onDone called on serverSocketA: ${connector._serverSocketA?.port}');
+      connector.close();
     });
 
     // listen for connections to the side 'B' server
@@ -279,7 +305,18 @@ class SocketConnector {
             '${DateTime.now()} | serverToServer | Connection on serverSocketB: ${connector._serverSocketB!.port}');
       }
       Side sideB = Side(socket, false, socketAuthVerifier: socketAuthVerifierB);
-      unawaited(connector.handleSingleConnection(sideB));
+      unawaited(connector.handleSingleConnection(sideB).catchError((err) {
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideB $sideB');
+      }));
+    }, onError: (error) {
+      logSink.writeln(
+          '${DateTime.now()} | serverToServer | ERROR on serverSocketB: ${connector._serverSocketB?.port} : $error');
+      connector.close();
+    }, onDone: () {
+      logSink.writeln(
+          '${DateTime.now()} | serverToServer | onDone called on serverSocketB: ${connector._serverSocketB?.port}');
+      connector.close();
     });
 
     return (connector);
@@ -319,7 +356,9 @@ class SocketConnector {
     // Create socket to an address and port
     Socket socket = await Socket.connect(addressA, portA);
     Side sideA = Side(socket, true, transformer: transformAtoB);
-    unawaited(connector.handleSingleConnection(sideA));
+    unawaited(connector.handleSingleConnection(sideA).catchError((err) {
+      logSink.writeln('ERROR $err from handleSingleConnection on sideA $sideA');
+    }));
 
     // bind to side 'B' port
     connector._serverSocketB = await ServerSocket.bind(addressB, portB);
@@ -327,7 +366,10 @@ class SocketConnector {
     // listen for connections to the 'B' side port
     connector._serverSocketB?.listen((socketB) {
       Side sideB = Side(socketB, false, transformer: transformBtoA);
-      unawaited(connector.handleSingleConnection(sideB));
+      unawaited(connector.handleSingleConnection(sideB).catchError((err) {
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideB $sideB');
+      }));
     });
     return (connector);
   }
@@ -361,14 +403,18 @@ class SocketConnector {
     }
     Socket sideASocket = await Socket.connect(addressA, portA);
     Side sideA = Side(sideASocket, true, transformer: transformAtoB);
-    unawaited(connector.handleSingleConnection(sideA));
+    unawaited(connector.handleSingleConnection(sideA).catchError((err) {
+      logSink.writeln('ERROR $err from handleSingleConnection on sideA $sideA');
+    }));
 
     if (verbose) {
       logSink.writeln('socket_connector: Connecting to $addressB:$portB');
     }
     Socket sideBSocket = await Socket.connect(addressB, portB);
     Side sideB = Side(sideBSocket, false, transformer: transformBtoA);
-    unawaited(connector.handleSingleConnection(sideB));
+    unawaited(connector.handleSingleConnection(sideB).catchError((err) {
+      logSink.writeln('ERROR $err from handleSingleConnection on sideB $sideB');
+    }));
 
     if (verbose) {
       logSink.writeln('socket_connector: started');
@@ -408,7 +454,8 @@ class SocketConnector {
       bool multi = false,
       @Deprecated("use beforeJoining instead")
       Function(Socket socketA, Socket socketB)? onConnect,
-      Function(Side sideA, Side sideB)? beforeJoining}) async {
+      Function(Side sideA, Side sideB)? beforeJoining,
+      int backlog = 0}) async {
     IOSink logSink = logger ?? stderr;
     addressA ??= InternetAddress.anyIPv4;
 
@@ -421,25 +468,51 @@ class SocketConnector {
 
     int connections = 0;
     // bind to a local port for side 'A'
-    connector._serverSocketA = await ServerSocket.bind(addressA, portA);
-    // listen on the local port and connect the inbound socket
-    connector._serverSocketA?.listen((sideASocket) async {
-      if (!multi) {
-        unawaited(connector._serverSocketA?.close());
-      }
+    connector._serverSocketA = await ServerSocket.bind(
+      addressA,
+      portA,
+      backlog: backlog,
+    );
+
+    StreamController<Socket> ssc = StreamController();
+    ssc.stream.listen((sideASocket) async {
       Side sideA = Side(sideASocket, true, transformer: transformAtoB);
-      unawaited(connector.handleSingleConnection(sideA));
+      unawaited(connector.handleSingleConnection(sideA).catchError((err) {
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideA $sideA');
+      }));
 
       if (verbose) {
-        logSink.writeln('Making connection ${++connections} to the "B" side');
+        logSink.writeln('Creating socket #${++connections} to the "B" side');
       }
       // connect to the side 'B' address and port
       Socket sideBSocket = await Socket.connect(addressB, portB);
+      if (verbose) {
+        logSink.writeln('"B" side socket #$connections created');
+      }
       Side sideB = Side(sideBSocket, false, transformer: transformBtoA);
-      beforeJoining?.call(sideA, sideB);
-      unawaited(connector.handleSingleConnection(sideB));
+      if (verbose) {
+        logSink.writeln('Calling the beforeJoining callback');
+      }
+      await beforeJoining?.call(sideA, sideB);
+      unawaited(connector.handleSingleConnection(sideB).catchError((err) {
+        logSink
+            .writeln('ERROR $err from handleSingleConnection on sideB $sideB');
+      }));
 
       onConnect?.call(sideASocket, sideBSocket);
+    });
+
+    // listen on the local port and connect the inbound socket
+    connector._serverSocketA?.listen((sideASocket) {
+      if (!multi) {
+        try {
+          connector._serverSocketA?.close();
+        } catch (e) {
+          logSink.writeln('Error while closing serverSocketA: $e');
+        }
+      }
+      ssc.add(sideASocket);
     });
 
     return (connector);
