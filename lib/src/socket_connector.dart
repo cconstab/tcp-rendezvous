@@ -141,9 +141,17 @@ class SocketConnector {
           StreamController<Uint8List> sc = StreamController<Uint8List>();
           side.farSide!.sink = sc;
           Stream<List<int>> transformed = side.transformer!(sc.stream);
-          transformed.listen(side.farSide!.socket.add);
+          transformed.listen((event) {
+            try {
+              side.farSide!.socket.add(event);
+            } catch (e) {
+              _log('Failed to write to side ${side.farSide!.name} - closing',
+                  force: true);
+              _destroySide(side.farSide!);
+            }
+          });
         }
-        side.stream.listen((Uint8List data) async {
+        side.stream.listen((Uint8List data) {
           if (logTraffic) {
             final message = String.fromCharCodes(data);
             if (side.isSideA) {
@@ -154,7 +162,13 @@ class SocketConnector {
                   'B -> A : ${message.replaceAll(RegExp('[\x00-\x1F\x7F-\xFF]'), '*')}'));
             }
           }
-          side.farSide!.sink.add(data);
+          try {
+            side.farSide!.sink.add(data);
+          } catch (e) {
+            _log('Failed to write to side ${side.farSide!.name} - closing',
+                force: true);
+            _destroySide(side.farSide!);
+          }
         }, onDone: () {
           _log('stream.onDone on side ${side.name}');
           _destroySide(side);
