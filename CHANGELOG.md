@@ -1,7 +1,12 @@
+## 2.3.1
+
+- fix: correctly handle situation where a socket has been closed but the other
+  side is still writing to it
+
 ## 2.3.0
 
 - feat: Add `authTimeout` property to SocketConnector. Previously this was
-- hard-coded to 5 seconds which is a bit restrictive for slow network
+  hard-coded to 5 seconds which is a bit restrictive for slow network
   connections. It now defaults to 30 seconds but may be set at time of
   construction
 - feat: added `authTimeout` parameter to `serverToServer`; this is provided
