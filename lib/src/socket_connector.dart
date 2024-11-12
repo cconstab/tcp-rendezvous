@@ -141,9 +141,10 @@ class SocketConnector {
           StreamController<Uint8List> sc = StreamController<Uint8List>();
           side.farSide!.sink = sc;
           Stream<List<int>> transformed = side.transformer!(sc.stream);
-          transformed.listen((event) {
+          transformed.listen((event) async {
             try {
               side.farSide!.socket.add(event);
+              await side.farSide!.socket.flush();
             } catch (e) {
               _log('Failed to write to side ${side.farSide!.name} - closing',
                   force: true);
@@ -151,7 +152,7 @@ class SocketConnector {
             }
           });
         }
-        side.stream.listen((Uint8List data) {
+        side.stream.listen((Uint8List data) async {
           if (logTraffic) {
             final message = String.fromCharCodes(data);
             if (side.isSideA) {
@@ -164,6 +165,7 @@ class SocketConnector {
           }
           try {
             side.farSide!.sink.add(data);
+            await side.farSide!.socket.flush();
           } catch (e) {
             _log('Failed to write to side ${side.farSide!.name} - closing',
                 force: true);
