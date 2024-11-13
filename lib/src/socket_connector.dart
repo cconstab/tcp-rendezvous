@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:chalkdart/chalk.dart';
+import 'package:mutex/mutex.dart';
 import 'package:socket_connector/src/types.dart';
 
 /// Typical usage is via the [serverToServer], [serverToSocket],
@@ -504,32 +505,40 @@ class SocketConnector {
     );
 
     StreamController<Socket> ssc = StreamController();
+    Mutex m = Mutex();
     ssc.stream.listen((sideASocket) async {
-      Side sideA = Side(sideASocket, true, transformer: transformAtoB);
-      unawaited(connector.handleSingleConnection(sideA).catchError((err) {
-        logSink
-            .writeln('ERROR $err from handleSingleConnection on sideA $sideA');
-      }));
+      try {
+        // It's important we handle these in sequence with no chance for race
+        // So we're going to use a mutex
+        await m.acquire();
+        Side sideA = Side(sideASocket, true, transformer: transformAtoB);
+        unawaited(connector.handleSingleConnection(sideA).catchError((err) {
+          logSink.writeln(
+              'ERROR $err from handleSingleConnection on sideA $sideA');
+        }));
 
-      if (verbose) {
-        logSink.writeln('Creating socket #${++connections} to the "B" side');
-      }
-      // connect to the side 'B' address and port
-      Socket sideBSocket = await Socket.connect(addressB, portB);
-      if (verbose) {
-        logSink.writeln('"B" side socket #$connections created');
-      }
-      Side sideB = Side(sideBSocket, false, transformer: transformBtoA);
-      if (verbose) {
-        logSink.writeln('Calling the beforeJoining callback');
-      }
-      await beforeJoining?.call(sideA, sideB);
-      unawaited(connector.handleSingleConnection(sideB).catchError((err) {
-        logSink
-            .writeln('ERROR $err from handleSingleConnection on sideB $sideB');
-      }));
+        if (verbose) {
+          logSink.writeln('Creating socket #${++connections} to the "B" side');
+        }
+        // connect to the side 'B' address and port
+        Socket sideBSocket = await Socket.connect(addressB, portB);
+        if (verbose) {
+          logSink.writeln('"B" side socket #$connections created');
+        }
+        Side sideB = Side(sideBSocket, false, transformer: transformBtoA);
+        if (verbose) {
+          logSink.writeln('Calling the beforeJoining callback');
+        }
+        await beforeJoining?.call(sideA, sideB);
+        unawaited(connector.handleSingleConnection(sideB).catchError((err) {
+          logSink.writeln(
+              'ERROR $err from handleSingleConnection on sideB $sideB');
+        }));
 
-      onConnect?.call(sideASocket, sideBSocket);
+        onConnect?.call(sideASocket, sideBSocket);
+      } finally {
+        m.release();
+      }
     });
 
     // listen on the local port and connect the inbound socket

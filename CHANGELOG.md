@@ -1,3 +1,8 @@
+## 2.3.3
+
+- fix: ensure serverToSocket handles sockets in strict sequence as they are
+  accepted
+
 ## 2.3.2
 
 - fix: stability under load
