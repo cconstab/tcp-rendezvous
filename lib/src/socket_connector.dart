@@ -136,23 +136,31 @@ class SocketConnector {
           'Added connection. There are now ${connections.length} connections.'));
 
       for (final side in [thisSide, thisSide.farSide!]) {
+        unawaited(side.socket.done
+            .then((v) => _destroySide(side))
+            .catchError((err) => _destroySide(side)));
         if (side.transformer != null) {
           // transformer is there to transform data originating FROM its side
           StreamController<Uint8List> sc = StreamController<Uint8List>();
           side.farSide!.sink = sc;
           Stream<List<int>> transformed = side.transformer!(sc.stream);
-          transformed.listen((event) async {
+          transformed.listen((data) {
             try {
-              side.farSide!.socket.add(event);
-              await side.farSide!.socket.flush();
-            } catch (e) {
+              if (side.farSide!.state == SideState.open) {
+                side.farSide!.socket.add(data);
+              } else {
+                throw StateError(
+                    'Will not write to side ${side.farSide!.name} as its state is ${side.farSide!.state}');
+              }
+            } catch (e, st) {
               _log('Failed to write to side ${side.farSide!.name} - closing',
                   force: true);
+              _log('(Error was $e; Stack trace follows\n$st');
               _destroySide(side.farSide!);
             }
           });
         }
-        side.stream.listen((Uint8List data) async {
+        side.stream.listen((Uint8List data) {
           if (logTraffic) {
             final message = String.fromCharCodes(data);
             if (side.isSideA) {
@@ -164,11 +172,16 @@ class SocketConnector {
             }
           }
           try {
-            side.farSide!.sink.add(data);
-            await side.farSide!.socket.flush();
-          } catch (e) {
+            if (side.farSide!.state == SideState.open) {
+              side.farSide!.sink.add(data);
+            } else {
+              throw StateError(
+                  'Will not write to side ${side.farSide!.name} as its state is ${side.farSide!.state}');
+            }
+          } catch (e, st) {
             _log('Failed to write to side ${side.farSide!.name} - closing',
                 force: true);
+            _log('(Error was $e; Stack trace follows\n$st');
             _destroySide(side.farSide!);
           }
         }, onDone: () {

@@ -1,3 +1,9 @@
+## 2.3.2
+
+- fix: stability under load
+  - ensure that socket.done is handled in all cases
+  - check a side's state before attempting to write to that side's socket
+
 ## 2.3.1
 
 - fix: correctly handle situation where a socket has been closed but the other
