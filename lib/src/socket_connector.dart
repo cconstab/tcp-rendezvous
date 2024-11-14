@@ -276,7 +276,7 @@ class SocketConnector {
     pendingB.clear();
   }
 
-  void _log(String s, {bool force = false}) {
+  void _log(String s, {bool force = true}) {
     if (verbose || force) {
       logger.writeln('${DateTime.now()} | SocketConnector | $s');
     }
