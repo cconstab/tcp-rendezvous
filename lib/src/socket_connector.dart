@@ -212,9 +212,9 @@ class SocketConnector {
     }
     side.state = SideState.closed;
 
-    try {
-      await side.stream.isEmpty;
-    } catch (_) {}
+    // try {
+    //   await side.stream.isEmpty;
+    // } catch (_) {}
     _log(chalk.brightBlue('_closeSide ${side.name}: RCVD: ${side.rcvd} bytes; SENT: ${side.sent} bytes'));
 
     Connection? connectionToRemove;
