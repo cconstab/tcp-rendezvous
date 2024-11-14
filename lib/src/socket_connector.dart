@@ -215,11 +215,7 @@ class SocketConnector {
     try {
       await side.stream.isEmpty;
     } catch (_) {}
-    _log(chalk.brightBlue('_closeSide ${side.name}'));
-    _log(chalk.brightBlue(
-        '    Received ${side.rcvd} bytes; wrote ${side.farSide?.sent} bytes to far side'));
-    _log(chalk.brightBlue(
-        '    Received ${side.farSide!.rcvd} bytes from far side; wrote ${side.sent} bytes to this side'));
+    _log(chalk.brightBlue('_closeSide ${side.name}: RCVD: ${side.rcvd} bytes; SENT: ${side.sent} bytes'));
 
     Connection? connectionToRemove;
     for (final c in connections) {
