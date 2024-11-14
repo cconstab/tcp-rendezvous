@@ -216,6 +216,7 @@ class SocketConnector {
     side.state = SideState.closed;
 
     if (waitAfterClose != null) {
+      _log(chalk.brightBlue('_closeSide ${side.name}: waiting for $waitAfterClose'));
       await Future.delayed(waitAfterClose!);
     }
     _log(chalk.brightBlue('_closeSide ${side.name}: RCVD: ${side.rcvd} bytes; SENT: ${side.sent} bytes'));
@@ -242,6 +243,7 @@ class SocketConnector {
 
     try {
       _log(chalk.brightBlue('Destroying socket on side ${side.name}'));
+      await side.socket.flush();
       side.socket.destroy();
       if (side.farSide != null && side.farSide!.state != SideState.closed) {
         if (side.rcvd == side.farSide!.sent) {
@@ -445,7 +447,6 @@ class SocketConnector {
     bool logTraffic = false,
     Duration timeout = SocketConnector.defaultTimeout,
     IOSink? logger,
-    Duration? waitAfterClose,
   }) async {
     IOSink logSink = logger ?? stderr;
     connector ??= SocketConnector(
@@ -453,7 +454,6 @@ class SocketConnector {
       logTraffic: logTraffic,
       timeout: timeout,
       logger: logSink,
-      waitAfterClose: waitAfterClose,
     );
 
     if (verbose) {
