@@ -2,6 +2,8 @@
 
 - fix: ensure serverToSocket handles sockets in strict sequence as they are
   accepted
+- fix: ensure that, when one side is closed, all data received from that side 
+  has been delivered to the other side before closing the other side
 
 ## 2.3.2
 

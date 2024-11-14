@@ -98,6 +98,9 @@ class SocketConnector {
     if (closed) {
       throw StateError('Connector is closed');
     }
+    unawaited(thisSide.socket.done
+        .then((v) => _closeSide(thisSide))
+        .catchError((err) => _closeSide(thisSide)));
     if (thisSide.socketAuthVerifier == null) {
       thisSide.authenticated = true;
     } else {
@@ -120,7 +123,7 @@ class SocketConnector {
     }
     if (!thisSide.authenticated) {
       _log('Authentication failed on side ${thisSide.name}', force: true);
-      _destroySide(thisSide);
+      _closeSide(thisSide);
       return;
     }
 
@@ -137,31 +140,34 @@ class SocketConnector {
           'Added connection. There are now ${connections.length} connections.'));
 
       for (final side in [thisSide, thisSide.farSide!]) {
-        unawaited(side.socket.done
-            .then((v) => _destroySide(side))
-            .catchError((err) => _destroySide(side)));
         if (side.transformer != null) {
           // transformer is there to transform data originating FROM its side
+          // transformer's output will write to the SOCKET on the far side
           StreamController<Uint8List> sc = StreamController<Uint8List>();
           side.farSide!.sink = sc;
           Stream<List<int>> transformed = side.transformer!(sc.stream);
-          transformed.listen((data) {
-            try {
-              if (side.farSide!.state == SideState.open) {
+          transformed.listen(
+            (data) {
+              try {
                 side.farSide!.socket.add(data);
-              } else {
-                throw StateError(
-                    'Will not write to side ${side.farSide!.name} as its state is ${side.farSide!.state}');
+                side.farSide!.sent += data.length;
+                if (side.state == SideState.closed &&
+                    side.rcvd == side.farSide!.sent) {
+                  _closeSide(side.farSide!);
+                }
+              } catch (e, st) {
+                _log('Failed to write to side ${side.farSide!.name} - closing',
+                    force: true);
+                _log('(Error was $e; Stack trace follows\n$st', force: true);
+                _closeSide(side.farSide!);
               }
-            } catch (e, st) {
-              _log('Failed to write to side ${side.farSide!.name} - closing',
-                  force: true);
-              _log('(Error was $e; Stack trace follows\n$st');
-              _destroySide(side.farSide!);
-            }
-          });
+            },
+            onDone: () => _closeSide(side),
+            onError: (error) => _closeSide(side),
+          );
         }
         side.stream.listen((Uint8List data) {
+          side.rcvd += data.length;
           if (logTraffic) {
             final message = String.fromCharCodes(data);
             if (side.isSideA) {
@@ -173,34 +179,48 @@ class SocketConnector {
             }
           }
           try {
-            if (side.farSide!.state == SideState.open) {
-              side.farSide!.sink.add(data);
-            } else {
-              throw StateError(
-                  'Will not write to side ${side.farSide!.name} as its state is ${side.farSide!.state}');
+            side.farSide!.sink.add(data);
+            if (side.farSide!.sink is Socket) {
+              side.farSide!.sent += data.length;
+              if (side.state == SideState.closed &&
+                  side.rcvd == side.farSide!.sent) {
+                _closeSide(side.farSide!);
+              }
             }
           } catch (e, st) {
             _log('Failed to write to side ${side.farSide!.name} - closing',
                 force: true);
-            _log('(Error was $e; Stack trace follows\n$st');
-            _destroySide(side.farSide!);
+            _log('(Error was $e; Stack trace follows\n$st', force: true);
+            _closeSide(side.farSide!);
           }
-        }, onDone: () {
-          _log('stream.onDone on side ${side.name}');
-          _destroySide(side);
+        }, onDone: () async {
+          _log('${side.stream.runtimeType}.onDone on side ${side.name}');
+          _closeSide(side);
         }, onError: (error) {
-          _log('stream.onError on side ${side.name}: $error', force: true);
-          _destroySide(side);
+          _log(
+              '${side.stream.runtimeType}.onError on side ${side.name}: $error',
+              force: true);
+          _closeSide(side);
         });
       }
     }
   }
 
-  _destroySide(final Side side) {
+  _closeSide(final Side side) async {
     if (side.state != SideState.open) {
       return;
     }
-    side.state = SideState.closing;
+    side.state = SideState.closed;
+
+    try {
+      await side.stream.isEmpty;
+    } catch (_) {}
+    _log(chalk.brightBlue('_closeSide ${side.name}'));
+    _log(chalk.brightBlue(
+        '    Received ${side.rcvd} bytes; wrote ${side.farSide?.sent} bytes to far side'));
+    _log(chalk.brightBlue(
+        '    Received ${side.farSide!.rcvd} bytes from far side; wrote ${side.sent} bytes to this side'));
+
     Connection? connectionToRemove;
     for (final c in connections) {
       if (c.sideA == side || c.sideB == side) {
@@ -220,16 +240,23 @@ class SocketConnector {
         close();
       }
     }
-    side.state = SideState.closed;
+
     try {
       _log(chalk.brightBlue('Destroying socket on side ${side.name}'));
       side.socket.destroy();
-      if (side.farSide != null) {
-        _log(chalk.brightBlue(
-            'Destroying socket on far side (${side.farSide?.name})'));
-        _destroySide(side.farSide!);
+      if (side.farSide != null && side.farSide!.state != SideState.closed) {
+        if (side.rcvd == side.farSide!.sent) {
+          _log(chalk.brightBlue(
+              'Far side (${side.farSide?.name}) has received all data - will close it'));
+          _closeSide(side.farSide!);
+        } else {
+          _log(chalk.brightBlue(
+              'Far side (${side.farSide?.name}) has NOT YET received all data'));
+        }
       }
-    } catch (_) {}
+    } catch (err) {
+      _log('_closeSide encountered error $err');
+    }
   }
 
   void close() {
@@ -244,11 +271,11 @@ class SocketConnector {
       _log('closed');
     }
     for (final s in pendingA) {
-      _destroySide(s);
+      _closeSide(s);
     }
     pendingA.clear();
     for (final s in pendingB) {
-      _destroySide(s);
+      _closeSide(s);
     }
     pendingB.clear();
   }
