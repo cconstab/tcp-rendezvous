@@ -24,15 +24,12 @@ class SocketConnector {
 
   bool gracePeriodPassed = false;
 
-  Duration? waitAfterClose;
-
   SocketConnector({
     this.verbose = false,
     this.logTraffic = false,
     this.timeout = defaultTimeout,
     this.authTimeout = defaultTimeout,
     IOSink? logger,
-    this.waitAfterClose,
   }) {
     this.logger = logger ?? stderr;
     Timer(timeout, () {
@@ -215,10 +212,6 @@ class SocketConnector {
     }
     side.state = SideState.closed;
 
-    if (waitAfterClose != null) {
-      _log(chalk.brightBlue('_closeSide ${side.name}: waiting for $waitAfterClose'));
-      await Future.delayed(waitAfterClose!);
-    }
     _log(chalk.brightBlue('_closeSide ${side.name}: RCVD: ${side.rcvd} bytes; SENT: ${side.sent} bytes'));
 
     Connection? connectionToRemove;
