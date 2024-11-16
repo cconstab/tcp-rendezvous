@@ -65,6 +65,12 @@ class Side {
   SocketAuthVerifier? socketAuthVerifier;
   DataTransformer? transformer;
 
+  /// number of bytes written to this side's socket
+  int sent = 0;
+
+  /// number of bytes received from this side's socket
+  int rcvd = 0;
+
   String get name => isSideA ? 'A' : 'B';
   Side(this.socket, this.isSideA, {this.socketAuthVerifier, this.transformer}) {
     sink = socket;
